@@ -4,3 +4,6 @@
 [submodule "libraries/Adafruit_NFCShield_I2C"]
 	path = libraries/Adafruit_NFCShield_I2C
 	url = git@github.com:adafruit/Adafruit_NFCShield_I2C.git
+[submodule "libraries/LiquidCrystal"]
+	path = libraries/LiquidCrystal
+	url = git@github.com:adafruit/LiquidCrystal.git
