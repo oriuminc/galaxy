@@ -1,0 +1,6 @@
+[submodule "libraries/Adafruit_CC3000"]
+	path = libraries/Adafruit_CC3000
+	url = git@github.com:adafruit/Adafruit_CC3000_Library.git
+[submodule "libraries/Adafruit_NFCShield_I2C"]
+	path = libraries/Adafruit_NFCShield_I2C
+	url = git@github.com:adafruit/Adafruit_NFCShield_I2C.git
