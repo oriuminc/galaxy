@@ -1,3 +1,5 @@
+
+
 /*
   Galaxy
   Networked RFID readers based on Arduino Unos.
@@ -7,52 +9,142 @@
 #include <Adafruit_CC3000.h> // wifi
 #include <ccspi.h> // wifi
 #include <SPI.h> // wifi
-
-//#include <Adafruit_NFCShield_I2C.h> //rfid
+#include <Wire.h> // rfid
+#include <Adafruit_NFCShield_I2C.h> // rfid
+#include <SoftwareSerial.h> // lcd
 
 //tabs
 
 // external vars
 // extern const char STUFF;
-// These are the interrupt and control pins
+
+#define NODE_ID 001 // uid for the arduino build to send to the server
+
+/* CC3K definitions ----------------------------------------------------- */
 #define ADAFRUIT_CC3000_IRQ   3 
 #define ADAFRUIT_CC3000_VBAT  5
 #define ADAFRUIT_CC3000_CS    10
 Adafruit_CC3000 cc3000 = Adafruit_CC3000(ADAFRUIT_CC3000_CS, ADAFRUIT_CC3000_IRQ, ADAFRUIT_CC3000_VBAT,
                                          SPI_CLOCK_DIV2); 
-#define WLAN_SSID    "Battlegrounds"
-#define WLAN_PASS    "ding0.slugs"
+#define WLAN_SSID    "Apartment Apartment"
+#define WLAN_PASS    "p3ab0dy!"
 #define WLAN_SECURITY WLAN_SEC_WPA2 // can be WLAN_SEC_UNSEC, WLAN_SEC_WEP, WLAN_SEC_WPA or WLAN_SEC_WPA2
 #define IDLE_TIMEOUT_MS  3000 
 // What page to grab!
 #define WEBSITE      "adafruit.com"
 #define WEBPAGE      "/testwifi/index.html"
 
+/* NFC definitions  ----------------------------------------------------- */
+
+#define IRQ   (2)
+#define RESET (3)  // Not connected by default on the NFC Shield
+
+Adafruit_NFCShield_I2C nfc(IRQ, RESET);
+
 //internal vars
 uint32_t ip;
+SoftwareSerial lcd = SoftwareSerial(0,9); 
+
 
 /* Setup ----------------------------------------------------- */
 // the setup routine runs once when you press reset:
 void setup(void) {               
   Serial.begin(115200);
-  boolean RESPONSE;
-  char domain[] = "adafruit.com";
-  char endpoint[] = "/testwifi/index.html";
-  RESPONSE = webclientSend(WEBSITE,  WEBPAGE);
-  Serial.println(RESPONSE);
- 
+
+  // nfc
+  nfc.begin();
+  uint32_t versiondata = nfc.getFirmwareVersion();
+  nfc.SAMConfig();// configure board to read RFID tags
+
+  // lcd
+  lcd.begin(9600); 
+  // set the size of the display if it isn't 16x2 (you only have to do this once)
+  lcd.write(0xFE);
+  lcd.write(0xD1);
+  lcd.write(16);  // 16 columns
+  lcd.write(2);   // 2 rows 
+  screenClear();
 }
 
 /* Loop ------------------------------------------------------ */
 // the loop routine runs over and over again forever:
 void loop() {
-  delay(1000);
+  uint8_t success;
+  uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 };  // Buffer to store the returned UID
+  uint8_t uidLength;                        // Length of the UID (4 or 7 bytes depending on ISO14443A card type)
+    
+  // Wait for an ISO14443A type cards (Mifare, etc.).  When one is found
+  // 'uid' will be populated with the UID, and uidLength will indicate
+  // if the uid is 4 bytes (Mifare Classic) or 7 bytes (Mifare Ultralight)
+  success = nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uidLength);
+  
+  if (success) 
+  {
+    // Found an ISO14443A card
+    // UID Value 
+    screenOn();
+    nfc.PrintHex(uid, uidLength);
+    lcd.println(); //the only way this will start
+    lcd.print("Hello ");
+    for (int i = 0; i < uidLength; i++) 
+    {
+      lcd.print(String(uid[i], HEX));
+      Serial.println(uid[i]);
+    }
+    lcd.println();
+    
+    // CC3K
+    boolean response;
+    response = clientSend(WEBSITE,  WEBPAGE);
+    Serial.println(response);
+    if (response) 
+    {
+      lcd.print("Connected!");
+      delay(5000);
+      screenClear();
+      screenOff();
+    }
+    else
+    {
+      lcd.print("Oops!");
+      delay(5000);
+      screenClear();
+      screenOff();
+    }
+  }
+  
+  
 }
 
 /* Functions ------------------------------------------------------ */
 // @todo move these to tabs
 
-boolean webclientSend(char *domain, char *endpoint) {
+// lcd
+void screenOn() {
+  lcd.write(0xFE);
+  lcd.write(0x42);
+  delay(10);
+}
+
+void screenOff() {
+  lcd.write(0xFE);
+  lcd.write(0x46);
+  delay(10);
+}
+
+void screenClear() {
+  lcd.write(0xFE);
+  lcd.write(0x58);
+  delay(10);
+  // go 'home'
+  lcd.write(0xFE);
+  lcd.write(0x48);
+  delay(10);
+}
+
+
+// web clients!
+boolean clientSend(char *domain, char *endpoint) {
    
   /* Initialise the module */  
   if (!cc3000.begin() || !cc3000.connectToAP(WLAN_SSID, WLAN_PASS, WLAN_SECURITY))
@@ -61,6 +153,7 @@ boolean webclientSend(char *domain, char *endpoint) {
     return false;
     while(1);
   }
+  
   Serial.println(F("Connected!"));
   
   /* Wait for DHCP to complete */
@@ -72,8 +165,10 @@ boolean webclientSend(char *domain, char *endpoint) {
   /* Display the IP address DNS, Gateway, etc. */  
   ip = 0;
   // Try looking up the website's IP address
-  while (ip == 0) {
-    if (! cc3000.getHostByName(domain, &ip)) {
+  while (ip == 0) 
+  {
+    if (! cc3000.getHostByName(domain, &ip)) 
+    {
       Serial.println(F("Couldn't resolve!"));
       return false;
     }
@@ -84,14 +179,17 @@ boolean webclientSend(char *domain, char *endpoint) {
      Note: HTTP/1.1 protocol is used to keep the server from closing the connection before all data is read.
   */
   Adafruit_CC3000_Client www = cc3000.connectTCP(ip, 80);
-  if (www.connected()) {
+  if (www.connected()) 
+  {
     www.fastrprint(F("GET "));
     www.fastrprint(endpoint);
     www.fastrprint(F(" HTTP/1.1\r\n"));
     www.fastrprint(F("Host: ")); www.fastrprint(domain); www.fastrprint(F("\r\n"));
     www.fastrprint(F("\r\n"));
     www.println();
-  } else {
+  } 
+  else 
+  {
     Serial.println(F("Connection failed"));
     return false;
   }
@@ -99,7 +197,8 @@ boolean webclientSend(char *domain, char *endpoint) {
   /* Read data until either the connection is closed, or the idle timeout is reached. */ 
   // this is the important stuff. the c variable is the http response. 
   unsigned long lastRead = millis();
-  while (www.connected() && (millis() - lastRead < IDLE_TIMEOUT_MS)) {
+  while (www.connected() && (millis() - lastRead < IDLE_TIMEOUT_MS)) 
+  {
     while (www.available()) {
       char c = www.read();
       Serial.print(c);
