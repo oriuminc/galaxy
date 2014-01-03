@@ -11,7 +11,7 @@
 #include <SPI.h> // wifi
 #include <Wire.h> // rfid
 #include <Adafruit_NFCShield_I2C.h> // rfid
-#include <SoftwareSerial.h> // lcd
+#include <SoftwareSerial.h> // lcd.
 
 //tabs
 
@@ -31,8 +31,8 @@ Adafruit_CC3000 cc3000 = Adafruit_CC3000(ADAFRUIT_CC3000_CS, ADAFRUIT_CC3000_IRQ
 #define WLAN_SECURITY WLAN_SEC_WPA2 // can be WLAN_SEC_UNSEC, WLAN_SEC_WEP, WLAN_SEC_WPA or WLAN_SEC_WPA2
 #define IDLE_TIMEOUT_MS  3000 
 // What page to grab!
-#define WEBSITE      "adafruit.com"
-#define WEBPAGE      "/testwifi/index.html"
+#define SERVER      "adafruit.com"
+#define ENDPOINT      "/testwifi/"
 
 /* NFC definitions  ----------------------------------------------------- */
 
@@ -41,7 +41,7 @@ Adafruit_CC3000 cc3000 = Adafruit_CC3000(ADAFRUIT_CC3000_CS, ADAFRUIT_CC3000_IRQ
 
 Adafruit_NFCShield_I2C nfc(IRQ, RESET);
 
-//internal vars
+//global vars
 uint32_t ip;
 SoftwareSerial lcd = SoftwareSerial(0,9); 
 
@@ -63,7 +63,18 @@ void setup(void) {
   lcd.write(0xD1);
   lcd.write(16);  // 16 columns
   lcd.write(2);   // 2 rows 
+  
   screenClear();
+  screenOn();   
+  
+  lcd.println(); // @todo figure out why we need this to properly displ.
+  lcd.println("Connecting...");
+  // CC3K
+  clientConnect();
+  lcd.println("Success!");
+  
+  screenClear();
+  screenOff();   
 }
 
 /* Loop ------------------------------------------------------ */
@@ -72,7 +83,8 @@ void loop() {
   uint8_t success;
   uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 };  // Buffer to store the returned UID
   uint8_t uidLength;                        // Length of the UID (4 or 7 bytes depending on ISO14443A card type)
-    
+  String uidstr;
+  boolean response;
   // Wait for an ISO14443A type cards (Mifare, etc.).  When one is found
   // 'uid' will be populated with the UID, and uidLength will indicate
   // if the uid is 4 bytes (Mifare Classic) or 7 bytes (Mifare Ultralight)
@@ -83,19 +95,20 @@ void loop() {
     // Found an ISO14443A card
     // UID Value 
     screenOn();
-    nfc.PrintHex(uid, uidLength);
-    lcd.println(); //the only way this will start
+    delay(10);
+    lcd.println(); // @todo figure out why we need this.
     lcd.print("Hello ");
+    char uidtmp[(uidLength*2)+1];
     for (int i = 0; i < uidLength; i++) 
     {
       lcd.print(String(uid[i], HEX));
-      Serial.println(uid[i]);
+      uidstr = uidstr + String(uid[i], HEX);
     }
+    uidstr.toCharArray(uidtmp,(uidLength*2)+1);
     lcd.println();
-    
-    // CC3K
-    boolean response;
-    response = clientSend(WEBSITE,  WEBPAGE);
+    Serial.println(uidstr);
+
+    response = clientSend(SERVER, ENDPOINT, uidtmp);
     Serial.println(response);
     if (response) 
     {
@@ -123,7 +136,7 @@ void loop() {
 void screenOn() {
   lcd.write(0xFE);
   lcd.write(0x42);
-  delay(10);
+  delay(100);
 }
 
 void screenOff() {
@@ -144,27 +157,26 @@ void screenClear() {
 
 
 // web clients!
-boolean clientSend(char *domain, char *endpoint) {
-   
+void clientConnect() {
+     
   /* Initialise the module */  
   if (!cc3000.begin() || !cc3000.connectToAP(WLAN_SSID, WLAN_PASS, WLAN_SECURITY))
   {
-    Serial.println(F("Couldn't connect! Check your wiring?"));
-    return false;
-    while(1);
+    Serial.println(F("Couldn't connect to access point!"));
   }
-  
   Serial.println(F("Connected!"));
   
   /* Wait for DHCP to complete */
   while (!cc3000.checkDHCP())
   {
     delay(100); // ToDo: Insert a DHCP timeout!
-  }  
+  } 
+}
 
+boolean clientSend(char *domain, char *endpoint, char *args) {
   /* Display the IP address DNS, Gateway, etc. */  
   ip = 0;
-  // Try looking up the website's IP address
+  // Try looking up the SERVER's IP address
   while (ip == 0) 
   {
     if (! cc3000.getHostByName(domain, &ip)) 
@@ -175,7 +187,7 @@ boolean clientSend(char *domain, char *endpoint) {
     delay(500);
   }
 
-  /* Try connecting to the website.
+  /* Try connecting to the SERVER.
      Note: HTTP/1.1 protocol is used to keep the server from closing the connection before all data is read.
   */
   Adafruit_CC3000_Client www = cc3000.connectTCP(ip, 80);
@@ -183,6 +195,7 @@ boolean clientSend(char *domain, char *endpoint) {
   {
     www.fastrprint(F("GET "));
     www.fastrprint(endpoint);
+    www.fastrprint(args);
     www.fastrprint(F(" HTTP/1.1\r\n"));
     www.fastrprint(F("Host: ")); www.fastrprint(domain); www.fastrprint(F("\r\n"));
     www.fastrprint(F("\r\n"));
@@ -208,6 +221,6 @@ boolean clientSend(char *domain, char *endpoint) {
   www.close();
   
   /* You need to make sure to clean up after yourself or the CC3000 can freak out */
-  cc3000.disconnect();
+  //cc3000.disconnect();
   return true;
 }
