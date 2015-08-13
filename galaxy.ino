@@ -16,6 +16,10 @@
 // external vars
 // extern const char STUFF;
 
+// configuration
+
+#include "config.h"
+
 #define NODE_ID 001 // uid for the arduino build to send to the server
 
 /* CC3K definitions ----------------------------------------------------- */
@@ -24,13 +28,9 @@
 #define ADAFRUIT_CC3000_CS    10
 Adafruit_CC3000 cc3000 = Adafruit_CC3000(ADAFRUIT_CC3000_CS, ADAFRUIT_CC3000_IRQ, ADAFRUIT_CC3000_VBAT,
                                          SPI_CLOCK_DIV2); 
-#define WLAN_SSID    "myplanet2.4"
-#define WLAN_PASS    ""
 #define WLAN_SECURITY WLAN_SEC_WPA2 // can be WLAN_SEC_UNSEC, WLAN_SEC_WEP, WLAN_SEC_WPA or WLAN_SEC_WPA2
 #define IDLE_TIMEOUT_MS  3000 
 // What page to grab!
-#define SERVER      "adafruit.com"
-#define ENDPOINT      "/testwifi/"
 
 /* NFC definitions  ----------------------------------------------------- */
 
@@ -69,7 +69,10 @@ void setup(void) {
   lcd.println("Connecting...");
   // CC3K
   clientConnect();
+
   lcd.println("Success!");
+
+  clientSend(SERVER, ENDPOINT, "HELLO");
   
   screenClear();
   screenOff();   
@@ -175,6 +178,9 @@ boolean clientSend(char *domain, char *endpoint, char *args) {
   /* Display the IP address DNS, Gateway, etc. */  
   ip = 0;
   // Try looking up the SERVER's IP address
+  Serial.print("Looking up ");
+  Serial.println(domain);
+
   while (ip == 0) 
   {
     if (! cc3000.getHostByName(domain, &ip)) 
@@ -188,7 +194,7 @@ boolean clientSend(char *domain, char *endpoint, char *args) {
   /* Try connecting to the SERVER.
      Note: HTTP/1.1 protocol is used to keep the server from closing the connection before all data is read.
   */
-  Adafruit_CC3000_Client www = cc3000.connectTCP(ip, 80);
+  Adafruit_CC3000_Client www = cc3000.connectTCP(ip, PORT);
   if (www.connected()) 
   {
     www.fastrprint(F("GET "));
