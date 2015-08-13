@@ -1,5 +1,3 @@
-
-
 /*
   Galaxy
   Networked RFID readers based on Arduino Unos.
@@ -10,7 +8,7 @@
 #include <ccspi.h> // wifi
 #include <SPI.h> // wifi
 #include <Wire.h> // rfid
-#include <Adafruit_NFCShield_I2C.h> // rfid
+#include <Adafruit_PN532.h> // rfid
 #include <SoftwareSerial.h> // lcd.
 
 //tabs
@@ -26,8 +24,8 @@
 #define ADAFRUIT_CC3000_CS    10
 Adafruit_CC3000 cc3000 = Adafruit_CC3000(ADAFRUIT_CC3000_CS, ADAFRUIT_CC3000_IRQ, ADAFRUIT_CC3000_VBAT,
                                          SPI_CLOCK_DIV2); 
-#define WLAN_SSID    "Apartment Apartment"
-#define WLAN_PASS    "p3ab0dy!"
+#define WLAN_SSID    "myplanet2.4"
+#define WLAN_PASS    ""
 #define WLAN_SECURITY WLAN_SEC_WPA2 // can be WLAN_SEC_UNSEC, WLAN_SEC_WEP, WLAN_SEC_WPA or WLAN_SEC_WPA2
 #define IDLE_TIMEOUT_MS  3000 
 // What page to grab!
@@ -39,7 +37,7 @@ Adafruit_CC3000 cc3000 = Adafruit_CC3000(ADAFRUIT_CC3000_CS, ADAFRUIT_CC3000_IRQ
 #define IRQ   (2)
 #define RESET (3)  // Not connected by default on the NFC Shield
 
-Adafruit_NFCShield_I2C nfc(IRQ, RESET);
+Adafruit_PN532 nfc(IRQ, RESET);
 
 //global vars
 uint32_t ip;
