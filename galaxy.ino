@@ -2,7 +2,7 @@
   Galaxy
   Networked RFID readers based on Arduino Unos.
  */
- 
+
 // libraries
 #include <Adafruit_CC3000.h> // wifi
 #include <ccspi.h> // wifi
@@ -23,13 +23,13 @@
 #define NODE_ID 001 // uid for the arduino build to send to the server
 
 /* CC3K definitions ----------------------------------------------------- */
-#define ADAFRUIT_CC3000_IRQ   3 
+#define ADAFRUIT_CC3000_IRQ   3
 #define ADAFRUIT_CC3000_VBAT  5
 #define ADAFRUIT_CC3000_CS    10
 Adafruit_CC3000 cc3000 = Adafruit_CC3000(ADAFRUIT_CC3000_CS, ADAFRUIT_CC3000_IRQ, ADAFRUIT_CC3000_VBAT,
-                                         SPI_CLOCK_DIV2); 
+                                         SPI_CLOCK_DIV2);
 #define WLAN_SECURITY WLAN_SEC_WPA2 // can be WLAN_SEC_UNSEC, WLAN_SEC_WEP, WLAN_SEC_WPA or WLAN_SEC_WPA2
-#define IDLE_TIMEOUT_MS  3000 
+#define IDLE_TIMEOUT_MS  3000
 // What page to grab!
 
 /* NFC definitions  ----------------------------------------------------- */
@@ -41,12 +41,12 @@ Adafruit_PN532 nfc(IRQ, RESET);
 
 //global vars
 uint32_t ip;
-SoftwareSerial lcd = SoftwareSerial(0,9); 
+SoftwareSerial lcd = SoftwareSerial(0,9);
 
 
 /* Setup ----------------------------------------------------- */
 // the setup routine runs once when you press reset:
-void setup(void) {               
+void setup(void) {
   Serial.begin(115200);
 
   // nfc
@@ -55,16 +55,16 @@ void setup(void) {
   nfc.SAMConfig();// configure board to read RFID tags
 
   // lcd
-  lcd.begin(9600); 
+  lcd.begin(9600);
   // set the size of the display if it isn't 16x2 (you only have to do this once)
   lcd.write(0xFE);
   lcd.write(0xD1);
   lcd.write(16);  // 16 columns
-  lcd.write(2);   // 2 rows 
-  
+  lcd.write(2);   // 2 rows
+
   screenClear();
-  screenOn();   
-  
+  screenOn();
+
   lcd.println(); // @todo figure out why we need this to properly displ.
   lcd.println("Connecting...");
   // CC3K
@@ -73,9 +73,9 @@ void setup(void) {
   lcd.println("Success!");
 
   clientSend(SERVER, ENDPOINT, "HELLO");
-  
+
   screenClear();
-  screenOff();   
+  screenOff();
 }
 
 /* Loop ------------------------------------------------------ */
@@ -90,17 +90,17 @@ void loop() {
   // 'uid' will be populated with the UID, and uidLength will indicate
   // if the uid is 4 bytes (Mifare Classic) or 7 bytes (Mifare Ultralight)
   success = nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uidLength);
-  
-  if (success) 
+
+  if (success)
   {
     // Found an ISO14443A card
-    // UID Value 
+    // UID Value
     screenOn();
     delay(10);
     lcd.println(); // @todo figure out why we need this.
     lcd.print("Hello ");
     char uidtmp[(uidLength*2)+1];
-    for (int i = 0; i < uidLength; i++) 
+    for (int i = 0; i < uidLength; i++)
     {
       lcd.print(String(uid[i], HEX));
       uidstr = uidstr + String(uid[i], HEX);
@@ -111,7 +111,7 @@ void loop() {
 
     response = clientSend(SERVER, ENDPOINT, uidtmp);
     Serial.println(response);
-    if (response) 
+    if (response)
     {
       lcd.print("Connected!");
       delay(5000);
@@ -126,8 +126,8 @@ void loop() {
       screenOff();
     }
   }
-  
-  
+
+
 }
 
 /* Functions ------------------------------------------------------ */
@@ -180,24 +180,24 @@ void clientConnect() {
     Serial.println(F("Couldn't connect to access point!"));
   }
   Serial.println(F("Connected!"));
-  
+
   /* Wait for DHCP to complete */
   while (!cc3000.checkDHCP())
   {
     delay(100); // ToDo: Insert a DHCP timeout!
-  } 
+  }
 }
 
 boolean clientSend(char *domain, char *endpoint, char *args) {
-  /* Display the IP address DNS, Gateway, etc. */  
+  /* Display the IP address DNS, Gateway, etc. */
   ip = 0;
   // Try looking up the SERVER's IP address
   Serial.print("Looking up ");
   Serial.println(domain);
 
-  while (ip == 0) 
+  while (ip == 0)
   {
-    if (! cc3000.getHostByName(domain, &ip)) 
+    if (! cc3000.getHostByName(domain, &ip))
     {
       Serial.println(F("Couldn't resolve!"));
       return false;
@@ -209,7 +209,7 @@ boolean clientSend(char *domain, char *endpoint, char *args) {
      Note: HTTP/1.1 protocol is used to keep the server from closing the connection before all data is read.
   */
   Adafruit_CC3000_Client www = cc3000.connectTCP(ip, PORT);
-  if (www.connected()) 
+  if (www.connected())
   {
     www.fastrprint(F("GET "));
     www.fastrprint(endpoint);
@@ -218,17 +218,17 @@ boolean clientSend(char *domain, char *endpoint, char *args) {
     www.fastrprint(F("Host: ")); www.fastrprint(domain); www.fastrprint(F("\r\n"));
     www.fastrprint(F("\r\n"));
     www.println();
-  } 
-  else 
+  }
+  else
   {
     Serial.println(F("Connection failed"));
     return false;
   }
-  
-  /* Read data until either the connection is closed, or the idle timeout is reached. */ 
-  // this is the important stuff. the c variable is the http response. 
+
+  /* Read data until either the connection is closed, or the idle timeout is reached. */
+  // this is the important stuff. the c variable is the http response.
   unsigned long lastRead = millis();
-  while (www.connected() && (millis() - lastRead < IDLE_TIMEOUT_MS)) 
+  while (www.connected() && (millis() - lastRead < IDLE_TIMEOUT_MS))
   {
     while (www.available()) {
       char c = www.read();
@@ -237,7 +237,7 @@ boolean clientSend(char *domain, char *endpoint, char *args) {
     }
   }
   www.close();
-  
+
   /* You need to make sure to clean up after yourself or the CC3000 can freak out */
   //cc3000.disconnect();
   return true;
