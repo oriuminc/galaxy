@@ -159,8 +159,22 @@ void screenClear() {
 
 // web clients!
 void clientConnect() {
-     
-  /* Initialise the module */  
+  uint8_t macAddress[6];
+  String macAddressStr;
+
+  Serial.println("Getting MAC address");
+
+  cc3000.getMacAddress(macAddress);
+
+  for (int i = 0; i < sizeof(macAddress); i++) {
+    macAddressStr = macAddressStr + String(macAddress[i], HEX);
+    macAddressStr = macAddressStr + ".";
+  }
+
+  Serial.print("MAC address: ");
+  Serial.println(macAddressStr);
+
+  /* Initialise the module */
   if (!cc3000.begin() || !cc3000.connectToAP(WLAN_SSID, WLAN_PASS, WLAN_SECURITY))
   {
     Serial.println(F("Couldn't connect to access point!"));
