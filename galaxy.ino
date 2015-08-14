@@ -43,6 +43,15 @@ Adafruit_PN532 nfc(IRQ, RESET);
 uint32_t ip;
 SoftwareSerial lcd = SoftwareSerial(0,9);
 
+void toHex(char *dest, uint8_t *src, int srcLen)
+{
+  for (int i = 0; i < srcLen; i++)
+  {
+    sprintf(dest + i * 2, "%.2x", src[i]);
+  }
+
+  dest[srcLen * 2] = '\0';
+}
 
 /* Setup ----------------------------------------------------- */
 // the setup routine runs once when you press reset:
@@ -82,9 +91,9 @@ void setup(void) {
 // the loop routine runs over and over again forever:
 void loop() {
   uint8_t success;
-  uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 };  // Buffer to store the returned UID
+  uint8_t uid[7];  // Buffer to store the returned UID
   uint8_t uidLength;                        // Length of the UID (4 or 7 bytes depending on ISO14443A card type)
-  String uidstr;
+  char uidStr[7 * 2 + 1];
   boolean response;
   // Wait for an ISO14443A type cards (Mifare, etc.).  When one is found
   // 'uid' will be populated with the UID, and uidLength will indicate
@@ -98,19 +107,18 @@ void loop() {
     screenOn();
     delay(10);
     lcd.println(); // @todo figure out why we need this.
-    lcd.print("Hello ");
-    char uidtmp[(uidLength*2)+1];
-    for (int i = 0; i < uidLength; i++)
-    {
-      lcd.print(String(uid[i], HEX));
-      uidstr = uidstr + String(uid[i], HEX);
-    }
-    uidstr.toCharArray(uidtmp,(uidLength*2)+1);
-    lcd.println();
-    Serial.println(uidstr);
 
-    response = clientSend(SERVER, ENDPOINT, uidtmp);
+    toHex(uidStr, uid, uidLength);
+
+    lcd.print("Hello ");
+    lcd.println(uidStr);
+
+    Serial.println(uidStr);
+
+    response = clientSend(SERVER, ENDPOINT, uidStr);
+
     Serial.println(response);
+
     if (response)
     {
       lcd.print("Connected!");
@@ -160,16 +168,12 @@ void screenClear() {
 // web clients!
 void clientConnect() {
   uint8_t macAddress[6];
-  String macAddressStr;
+  char macAddressStr[sizeof(macAddress) * 2 + 1];
 
   Serial.println("Getting MAC address");
 
   cc3000.getMacAddress(macAddress);
-
-  for (int i = 0; i < sizeof(macAddress); i++) {
-    macAddressStr = macAddressStr + String(macAddress[i], HEX);
-    macAddressStr = macAddressStr + ".";
-  }
+  toHex(macAddressStr, macAddress, sizeof(macAddress));
 
   Serial.print("MAC address: ");
   Serial.println(macAddressStr);
