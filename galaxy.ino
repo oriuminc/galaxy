@@ -110,28 +110,23 @@ void loop() {
 
     toHex(uidStr, uid, uidLength);
 
-    lcd.print(F("Hello "));
-    lcd.println(uidStr);
+    lcd.println("Calling home");
 
     Serial.print(F("ID: "));
     Serial.println(uidStr);
 
     response = clientSend(SERVER, ENDPOINT, uidStr);
 
-    Serial.print(F("Response: "));
-    Serial.println(response);
-
     if (response)
     {
-      lcd.print("Connected!");
-      delay(5000);
+      delay(3000);
       screenClear();
       screenOff();
     }
     else
     {
       lcd.print("Oops!");
-      delay(5000);
+      delay(3000);
       screenClear();
       screenOff();
     }
@@ -238,17 +233,54 @@ boolean clientSend(char *domain, char *endpoint, char *idStr) {
     return false;
   }
 
+  char responseLine[128];
+  int responseLineIdx = 0;
+  const char CONTENT_LENGTH_HEADER[] = "Content-Length: ";
+  int contentLength;
+  bool bParsingBody = false;
+  char bodyLine[128];
+  int bodyLineIdx = 0;
+
   /* Read data until either the connection is closed, or the idle timeout is reached. */
   // this is the important stuff. the c variable is the http response.
   unsigned long lastRead = millis();
+
   while (www.connected() && (millis() - lastRead < IDLE_TIMEOUT_MS))
   {
     while (www.available()) {
       char c = www.read();
-      Serial.print(c);
+
       lastRead = millis();
+
+      if (bParsingBody) {
+        bodyLine[bodyLineIdx++] = c;
+
+        if (bodyLineIdx == contentLength) {
+          bodyLine[bodyLineIdx] = '\0';
+          Serial.println(bodyLine);
+          lcd.print(bodyLine);
+          break;
+        }
+      } else {
+        if (c == '\n') {
+          responseLine[responseLineIdx] = '\0';
+          Serial.print("<- ");
+          Serial.println(responseLine);
+          responseLineIdx = 0;
+
+          if (strncmp(responseLine, CONTENT_LENGTH_HEADER, sizeof(CONTENT_LENGTH_HEADER) - 1) == 0) {
+            const char *contentLengthStr = responseLine + sizeof(CONTENT_LENGTH_HEADER) - 1;
+            contentLength = atoi(contentLengthStr);
+          } else if (strlen(responseLine) == 0) {
+            bParsingBody = true;
+          }
+        } else if (c != '\r') {
+          responseLine[responseLineIdx++] = c;
+        }
+      }
     }
   }
+  Serial.println();
   www.close();
 
   /* You need to make sure to clean up after yourself or the CC3000 can freak out */
