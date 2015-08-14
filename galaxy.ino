@@ -75,11 +75,11 @@ void setup(void) {
   screenOn();
 
   lcd.println(); // @todo figure out why we need this to properly displ.
-  lcd.println("Connecting...");
+  lcd.println(F("Connecting..."));
   // CC3K
   clientConnect();
 
-  lcd.println("Success!");
+  lcd.println(F("Success!"));
 
   clientSend(SERVER, ENDPOINT, "HELLO");
 
@@ -110,13 +110,15 @@ void loop() {
 
     toHex(uidStr, uid, uidLength);
 
-    lcd.print("Hello ");
+    lcd.print(F("Hello "));
     lcd.println(uidStr);
 
+    Serial.print(F("ID: "));
     Serial.println(uidStr);
 
     response = clientSend(SERVER, ENDPOINT, uidStr);
 
+    Serial.print(F("Response: "));
     Serial.println(response);
 
     if (response)
@@ -164,20 +166,8 @@ void screenClear() {
   delay(10);
 }
 
-
 // web clients!
 void clientConnect() {
-  uint8_t macAddress[6];
-  char macAddressStr[sizeof(macAddress) * 2 + 1];
-
-  Serial.println("Getting MAC address");
-
-  cc3000.getMacAddress(macAddress);
-  toHex(macAddressStr, macAddress, sizeof(macAddress));
-
-  Serial.print("MAC address: ");
-  Serial.println(macAddressStr);
-
   /* Initialise the module */
   if (!cc3000.begin() || !cc3000.connectToAP(WLAN_SSID, WLAN_PASS, WLAN_SECURITY))
   {
@@ -192,11 +182,11 @@ void clientConnect() {
   }
 }
 
-boolean clientSend(char *domain, char *endpoint, char *args) {
+boolean clientSend(char *domain, char *endpoint, char *idStr) {
   /* Display the IP address DNS, Gateway, etc. */
   ip = 0;
   // Try looking up the SERVER's IP address
-  Serial.print("Looking up ");
+  Serial.print(F("Looking up "));
   Serial.println(domain);
 
   while (ip == 0)
@@ -215,13 +205,32 @@ boolean clientSend(char *domain, char *endpoint, char *args) {
   Adafruit_CC3000_Client www = cc3000.connectTCP(ip, PORT);
   if (www.connected())
   {
-    www.fastrprint(F("GET "));
+    uint8_t macAddress[6];
+
+    cc3000.getMacAddress(macAddress);
+
+    char macAddressStr[sizeof(macAddress) * 2 + 1];
+
+    toHex(macAddressStr, macAddress, sizeof(macAddress));
+
+    Serial.print(F("MAC address: "));
+    Serial.println(macAddressStr);
+
+    char args[128];
+
+    sprintf(args, "mac=%s&id=%s", macAddressStr, idStr);
+
+    char argsLenStr[5];
+    sprintf(argsLenStr, "%d", strlen(args));
+
+    www.fastrprint(F("POST "));
     www.fastrprint(endpoint);
-    www.fastrprint(args);
     www.fastrprint(F(" HTTP/1.1\r\n"));
     www.fastrprint(F("Host: ")); www.fastrprint(domain); www.fastrprint(F("\r\n"));
+    www.fastrprint(F("Content-Length: ")); www.fastrprint(argsLenStr); www.fastrprint(F("\r\n"));
+    www.fastrprint(F("Content-Type: application/x-www-form-urlencoded\r\n"));
     www.fastrprint(F("\r\n"));
-    www.println();
+    www.fastrprint(args);
   }
   else
   {
